@@ -1,0 +1,786 @@
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
+
+local Window = Fluent:CreateWindow({
+    Title = "Lemonade Hub " .. Fluent.Version,
+    SubTitle = "by Lemon",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = true, -- The blur may be detectable, setting this to false disables blur entirely
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl -- Used when theres no MinimizeKeybind
+})
+
+--Fluent provides Lucide Icons https://lucide.dev/icons/ for the tabs, icons are optional
+local Tabs = {
+    Info = Window:AddTab({ Title = "Info", Icon = "sheet" }),
+    Auto = Window:AddTab({ Title = "Auto", Icon = "fingerprint" }),
+    Combat = Window:AddTab({ Title = "Combat", Icon = "target" }),
+    Trade = Window:AddTab({ Title = "Trade", Icon = "cast" }),
+    Teleport = Window:AddTab({ Title = "Teleport", Icon = "cast" }),
+    Misc = Window:AddTab({ Title = "Misc", Icon = "component" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+}
+
+local Options = Fluent.Options
+
+do
+    Fluent:Notify({
+        Title = "Script Loaded",
+        Content = "Lemonade Hub has been successfully loaded!",
+        Duration = 5 -- Set to nil to make the notification not disappear
+    })
+
+    --Info
+    Tabs.Info:AddParagraph({
+        Title = "Credits to Lemon Meosjin",
+        Content = "Welcome to Lemonade Hub!"
+    })
+    --Info
+    Tabs.Info:AddParagraph({
+        Title = "UPDATES!",
+        Content = [[
+
+    UPDATE 16/06/2024:
+    
+    + Auto Kill
+    + Magnet Drop
+    + Auto Fuse Weapons
+    + Auto Sell Weapons
+    + Anti-AFK
+    + Nearest Kill Aura
+    + Teleport
+
+    UPDATE 16/07/2024:
+    + Auto Forge Weapons
+    + Trade to Players
+    ]]
+})
+    -------------------------------------------------AUTO----------------------------------------------------------
+    --Auto
+    local Toggle = Tabs.Auto:AddToggle("MyToggle", {Title = "Click", Default = false}) --click
+
+    local function checkToggle()
+        while Toggle.Value do
+            local A_1 = "PlayerClickAttack"
+            game:GetService("ReplicatedStorage").Remotes.PlayerClickAttack:FireServer(A_1)  -- Corrected to actually call FireServer
+            wait(0.1)
+        end
+        print("Toggle is off, stopping the loop...")
+    end
+    
+    Toggle:OnChanged(function()
+        if Toggle.Value then
+            -- Start the loop in a separate thread
+            spawn(checkToggle)
+        end
+    end)
+
+    local Toggle = Tabs.Auto:AddToggle("MyToggle", {Title = "Fuse All Weapons", Default = false}) --fuse
+
+    local function checkToggle()
+        while Toggle.Value do
+            local A_1 = "FuseWeapon"
+            game:GetService("ReplicatedStorage").Remotes.FuseWeapon:FireServer()  -- Corrected to actually call FireServer
+            wait(0.1)
+        end
+        print("Toggle is off, stopping the loop...")
+    end
+    
+    Toggle:OnChanged(function()
+        if Toggle.Value then
+            -- Start the loop in a separate thread
+            spawn(checkToggle)
+        end
+    end)
+    
+    local Toggle = Tabs.Auto:AddToggle("MyToggle", {Title = "Best Weapon", Default = false}) --weapon
+
+    local function checkToggle()
+        while Toggle.Value do
+            local A_1 = "EquipBestWeapon"
+            game:GetService("ReplicatedStorage").Remotes.EquipBestWeapon:FireServer(A_1)  -- Corrected to actually call FireServer
+            wait(0.1)
+        end
+        print("Toggle is off, stopping the loop...")
+    end
+    
+    Toggle:OnChanged(function()
+        if Toggle.Value then
+            -- Start the loop in a separate thread
+            spawn(checkToggle)
+        end
+    end)
+
+    -- Sell Weapon
+    local player = game.Players.LocalPlayer
+
+    if not player then
+        return
+    end
+    
+    local autoSellEnabled = false
+    local autoSellThread = nil
+    
+    local function AutoSell()
+        while autoSellEnabled do
+            local scrollingFrame = player.PlayerGui.EquipmentPanel.Frame.EquipmentPackage.Right.Mid.ScrollingFrame
+    
+            if scrollingFrame then
+                local args = {}
+                local count = 0
+    
+                for _, child in pairs(scrollingFrame:GetChildren()) do
+                    if child.Name ~= "EquipmentTemplate" and child.Name ~= "UIGridLayout" then
+                        if child:FindFirstChild("LockImage") then
+                            local lockImage = child.LockImage
+                            local imageLabel = lockImage.Frame:FindFirstChild("ImageLabel")
+                            if imageLabel and not imageLabel.Visible then
+                                count = count + 1
+                                args[count] = {
+                                    [1] = child.Name,
+                                    [2] = "",
+                                    [3] = "",
+                                    [4] = ""
+                                }
+                            end
+                        end
+                    end
+                end
+    
+                if count > 0 then
+                    local success, error_message = pcall(function()
+                        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("DeleteWeapons"):FireServer(unpack(args))
+                    end)
+    
+                    if not success then
+                        warn("Error while selling weapons:", error_message)
+                    end
+    
+                    wait(0.1)  -- Adjust delay as needed
+                else
+                    autoSellEnabled = false
+                end
+            else
+                autoSellEnabled = false
+            end
+    
+            wait(0.1)  -- Adjust delay as needed
+        end
+    end
+    
+    local function startAutoSell()
+        if not autoSellEnabled then
+            autoSellEnabled = true
+            autoSellThread = coroutine.create(AutoSell)
+            coroutine.resume(autoSellThread)
+        end
+    end
+    
+    local function stopAutoSell()
+        if autoSellEnabled then
+            autoSellEnabled = false
+            if autoSellThread then
+                coroutine.kill(autoSellThread)
+                autoSellThread = nil
+            end
+        end
+    end
+    
+    -- Example GUI Integration (replace with your actual implementation)
+    local ToggleAutoSell = Tabs.Auto:AddToggle("ToggleAutoSell", {Title = "Sell Weapon", Default = false})
+    
+    ToggleAutoSell:OnChanged(function(enabled)
+        if enabled then
+            startAutoSell()
+        else
+            stopAutoSell()
+        end
+    end)
+        
+    --Forge Weapon
+    local function invokeForgeWeapon()
+    -- Accessing the ScrollingFrame
+    local player = game.Players.LocalPlayer
+    local gui = player.PlayerGui
+    local equipmentPanel = gui:WaitForChild("EquipmentPanel")
+    local frame = equipmentPanel:WaitForChild("Frame")
+    local equipmentPackage = frame:WaitForChild("EquipmentPackage")
+    local right = equipmentPackage:WaitForChild("Right")
+    local mid = right:WaitForChild("Mid")
+    local scrollingFrame = mid:WaitForChild("ScrollingFrame")
+    
+    -- Check if the ScrollingFrame exists
+    if scrollingFrame then
+        local args = {}
+        local count = 0
+        
+        -- Iterate through each child of the ScrollingFrame
+        for _, child in pairs(scrollingFrame:GetChildren()) do
+            -- Check if the child is not EquipmentTemplate or UIGridLayout
+            if child.Name ~= "EquipmentTemplate" and child.Name ~= "UIGridLayout" then
+                -- Assuming the child has a Name that corresponds to the weapon ID
+                -- Modify this part based on how the ID is stored in your GUI
+                local weaponID = child.Name
+                
+                -- Add the weapon ID to args
+                args[count + 1] = weaponID
+                count = count + 1
+            end
+        end
+        
+        -- Check if there are weapons to forge
+        if count > 0 then
+            -- Invoke the ForgeWeapon remote function with the collected arguments
+            game:GetService("ReplicatedStorage").Remotes.ForgeWeapon:InvokeServer(unpack(args))
+        else
+            print("No weapons to forge.")
+        end
+    else
+        print("ScrollingFrame not found.")
+    end
+end
+
+-- Example usage: Creating and handling the toggle
+local Toggle = Tabs.Auto:AddToggle("MyToggle", {Title = "Forge Weapon", Default = false })
+
+Toggle:OnChanged(function()
+    local isEnabled = Toggle.Value
+    print("Toggle changed:", isEnabled)
+    
+    -- Check if toggle is enabled and invoke ForgeWeapon
+    if isEnabled then
+        invokeForgeWeapon()
+    end
+end)
+
+-- Optionally set the toggle's initial value
+Options.MyToggle:SetValue(false)
+
+-- Best Hero
+local Toggle = Tabs.Auto:AddToggle("MyToggle", {Title = "Best Hero", Default = false}) --hero
+
+local function checkToggle()
+    while Toggle.Value do
+        local A_1 = "AutoEquipBestHero"
+        game:GetService("ReplicatedStorage").Remotes.AutoEquipBestHero:FireServer(A_1)  -- Corrected to actually call FireServer
+        wait(0.1)
+    end
+    print("Toggle is off, stopping the loop...")
+end
+
+Toggle:OnChanged(function()
+    if Toggle.Value then
+        -- Start the loop in a separate thread
+        spawn(checkToggle)
+    end
+end)
+
+-- reborn
+local Toggle = Tabs.Auto:AddToggle("MyToggle", {Title = "Reborn", Default = false}) --reborn
+
+local function checkToggle()
+    while Toggle.Value do
+        local A_1 = "PlayerReborn"
+        game:GetService("ReplicatedStorage").Remotes.PlayerReborn:FireServer(A_1)  -- Corrected to actually call FireServer
+        wait(0.1)
+    end
+    print("Toggle is off, stopping the loop...")
+end
+
+Toggle:OnChanged(function()
+    if Toggle.Value then
+        -- Start the loop in a separate thread
+        spawn(checkToggle)
+    end
+end)
+
+----------------------------------------------------MAIN-----------------------------------------------------------
+-- Kill Aura 
+local attackFrequency = 0.01
+
+local function attackEnemy(enemyGuid)
+    local args = {
+        [1] = enemyGuid
+    }
+    game:GetService("ReplicatedStorage").Remotes.PlayerClickAttack:FireServer(unpack(args))
+end
+
+local autoAttackActive = false
+
+local function autoAttack()
+    while autoAttackActive do
+        for _, enemy in ipairs(game.Workspace.Enemys:GetChildren()) do
+            local enemyGuid = enemy:GetAttribute("EnemyGuid")
+            if enemyGuid then
+                attackEnemy(enemyGuid)
+                wait(0.01)
+            end
+        end
+        wait(attackFrequency)
+    end
+end
+
+local function startKillAura()
+    if not autoAttackActive then
+        autoAttackActive = true
+        coroutine.wrap(autoAttack)()  -- Start the auto-attack coroutine
+    end
+end
+
+local function stopKillAura()
+    autoAttackActive = false
+end
+
+-- Combat tab - Kill Aura toggle
+local ToggleKillAura = Tabs.Combat:AddToggle("ToggleKillAura", {Title = "Kill Aura", Default = false})
+
+ToggleKillAura:OnChanged(function(enabled)
+    if enabled then
+        startKillAura()
+    else
+        stopKillAura()
+    end
+end)
+
+--Nearest Aura
+local attackFrequency = 0.01
+local maxTargetDistance = 50  -- Default maximum target distance
+
+local function getNearestEnemy()
+    local playerPosition = game.Players.LocalPlayer.Character.HumanoidRootPart.Position
+    local nearestEnemy = nil
+    local nearestDistance = maxTargetDistance
+    
+    for _, enemy in ipairs(game.Workspace.Enemys:GetChildren()) do
+        local enemyGuid = enemy:GetAttribute("EnemyGuid")
+        if enemyGuid then
+            local enemyPosition = enemy.PrimaryPart.Position
+            local distance = (playerPosition - enemyPosition).magnitude
+            if distance < nearestDistance then
+                nearestEnemy = enemy
+                nearestDistance = distance
+            end
+        end
+    end
+    
+    return nearestEnemy
+end
+
+local function attackNearestEnemy()
+    local nearestEnemy = getNearestEnemy()
+    if nearestEnemy then
+        local enemyGuid = nearestEnemy:GetAttribute("EnemyGuid")
+        if enemyGuid then
+            game:GetService("ReplicatedStorage").Remotes.PlayerClickAttack:FireServer(enemyGuid)
+        end
+    end
+end
+
+local autoAttackActive = false
+
+local function autoAttack()
+    while autoAttackActive do
+        attackNearestEnemy()
+        wait(attackFrequency)
+    end
+end
+
+local function startKillAura()
+    if not autoAttackActive then
+        autoAttackActive = true
+        coroutine.wrap(autoAttack)()  -- Start the auto-attack coroutine
+    end
+end
+
+local function stopKillAura()
+    autoAttackActive = false
+end
+
+-- Combat tab - Kill Aura toggle
+local ToggleKillAura = Tabs.Combat:AddToggle("ToggleKillAura", {Title = "Nearest Kill Aura", Default = false})
+
+-- Input for maximum target distance
+local Input = Tabs.Combat:AddInput("Input", {
+    Title = "Max Target Distance",
+    Default = tostring(maxTargetDistance),
+    Placeholder = "Enter distance",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        maxTargetDistance = tonumber(Value) or maxTargetDistance
+        print("Max Target Distance set to:", maxTargetDistance)
+    end
+})
+
+Input:OnChanged(function()
+    maxTargetDistance = tonumber(Input.Value) or maxTargetDistance
+    print("Max Target Distance updated:", maxTargetDistance)
+end)
+
+ToggleKillAura:OnChanged(function(enabled)
+    if enabled then
+        startKillAura()
+    else
+        stopKillAura()
+    end
+end)
+
+
+
+-- Collect
+local player = game.Players.LocalPlayer
+
+local function findOutGold()
+    local goldsFolder = game.Workspace.Golds
+    if goldsFolder then
+        local outGold = {}
+        for _, gold in ipairs(goldsFolder:GetChildren()) do
+            if gold.Name == "OutGold" then
+                table.insert(outGold, gold)
+            end
+        end
+        return outGold
+    end
+    return {}
+end
+
+local function teleportItemsToPlayer()
+    local outGold = findOutGold()
+    if #outGold > 0 then
+        local playerPosition = player.Character.HumanoidRootPart.CFrame.p
+        for _, gold in ipairs(outGold) do
+            gold.CFrame = CFrame.new(playerPosition)
+        end
+    else
+        warn("No OutGold found in Workspace.Golds")
+    end
+end
+
+local magnetEnabled = false
+local magnetLoop
+
+local function startMagnet()
+    if magnetEnabled then return end
+    magnetEnabled = true
+    magnetLoop = game:GetService("RunService").Heartbeat:Connect(function()
+        teleportItemsToPlayer()
+    end)
+end
+
+local function stopMagnet()
+    if not magnetEnabled then return end
+    magnetEnabled = false
+    if magnetLoop then
+        magnetLoop:Disconnect()
+    end
+end
+
+-- Auto tab - Magnet Drop toggle
+local ToggleMagnet = Tabs.Combat:AddToggle("ToggleMagnet", {Title = "Magnet Drop", Default = false})
+
+ToggleMagnet:OnChanged(function(enabled)
+    if enabled then
+        startMagnet()
+    else
+        stopMagnet()
+    end
+end)
+
+--------------------------------------------Trade--------------------------------------------------------------
+
+-- Trade
+
+local function SetTipFrameVisibility(player, visible)
+    local playerGui = player:FindFirstChild("PlayerGui")
+    if playerGui then
+        local tradingTipPanel = playerGui:FindFirstChild("TradingTipPanel")
+        if tradingTipPanel then
+            local tradingTipFrame = tradingTipPanel:FindFirstChild("TipFrame")
+            if tradingTipFrame then
+                tradingTipFrame.Visible = visible
+            else
+                warn("TipFrame not found in TradingTipPanel for player " .. player.Name)
+            end
+        else
+            warn("TradingTipPanel not found in player " .. player.Name .. "'s GUI.")
+        end
+    else
+        warn("PlayerGui not found for player " .. player.Name)
+    end
+end
+
+local function TradeToPlayer(playerName)
+    local player = game.Players.LocalPlayer
+    local targetPlayer = game.Players:FindFirstChild(playerName)
+    
+    if targetPlayer then
+        local success, errorMessage = pcall(function()
+            game:GetService("ReplicatedStorage").Remotes.SendTrade:InvokeServer(targetPlayer)
+        end)
+        
+        if success then
+            print("Trade request sent successfully to " .. playerName)
+            SetTipFrameVisibility(player, true)
+        else
+            warn("Failed to send trade request:", errorMessage)
+        end
+    else
+        warn("Player '" .. playerName .. "' not found in the server.")
+    end
+end
+
+local function RefreshDropdown(Dropdown)
+    if Dropdown then
+        Dropdown.Values = {}
+        local playerNames = {}
+        for _, player in ipairs(game.Players:GetPlayers()) do
+            table.insert(playerNames, player.Name)
+        end
+        Dropdown:SetValues(playerNames)
+    else
+        warn("Dropdown object not found.")
+    end
+end
+
+local playerNames = {}
+for _, player in ipairs(game.Players:GetPlayers()) do
+    table.insert(playerNames, player.Name)
+end
+
+local Dropdown = Tabs.Trade:AddDropdown("Dropdown", {
+    Title = "Trade to Player",
+    Values = playerNames,
+    Multi = false,
+    Default = 1,
+})
+
+Dropdown:OnChanged(function(selectedItem)
+    Dropdown.Selected = selectedItem
+end)
+
+Tabs.Trade:AddButton({
+    Title = "Trade Button",
+    Description = "Send trade to selected player",
+    Callback = function()
+        local selectedPlayer = Dropdown.Selected
+        if selectedPlayer and type(selectedPlayer) == "string" then
+            TradeToPlayer(selectedPlayer)
+        else
+            warn("No player selected to trade.")
+        end
+    end
+})
+
+Tabs.Trade:AddButton({
+    Title = "Refresh Players",
+    Description = "Refresh the list of players",
+    Callback = function()
+        RefreshDropdown(Dropdown)
+    end
+})
+
+SetTipFrameVisibility(game.Players.LocalPlayer, false)
+
+
+
+--------------------------------------------Teleport-------------------------------------------------------------
+
+-- Function to handle teleportation
+local function TeleportTo(mapId)
+    local args = {
+        mapId = mapId
+    }
+    
+    local success, errorMessage = pcall(function()
+        game:GetService("ReplicatedStorage").Remotes.LocalPlayerTeleport:FireServer(args)
+    end)
+    
+    if success then
+        print("Teleport request sent successfully to mapId:", mapId)
+    else
+        warn("Failed to send teleport request:", errorMessage)
+    end
+end
+
+-- Dropdown setup
+local Dropdown = Tabs.Teleport:AddDropdown("Dropdown", {
+    Title = "Teleport",
+    Values = {
+        "Fantasy Valley",
+        "Seaside Villa",
+        "Congress Hall",
+        "Border Territory",
+        "Polar Plain",
+        "Ghost Forest",
+        "Demon Station",
+        "Hachira's training",
+        "Infinite City",
+        "One Punch Man"
+    },
+    Multi = false,
+    Default = 1, -- Index of default value in Values array (1-based)
+})
+
+-- Mapping between dropdown values and mapIds
+local mapIds = {
+    ["Fantasy Valley"] = 50001,
+    ["Seaside Villa"] = 50002,
+    ["Congress Hall"] = 50003,
+    ["Border Territory"] = 50004,
+    ["Polar Plain"] = 50005,
+    ["Ghost Forest"] = 50006,
+    ["Demon Station"] = 50007,
+    ["Hachira's training"] = 50008,
+    ["Infinite City"] = 50009,
+    ["One Punch Man"] = 50010,
+}
+
+-- Flag to track if dropdown has been changed from default
+local dropdownChanged = false
+
+-- OnChanged callback for dropdown
+Dropdown:OnChanged(function(Value)
+    -- Ensure teleportation only happens after the initial setup
+    if dropdownChanged then
+        local mapId = mapIds[Value]
+        if mapId then
+            TeleportTo(mapId)
+        else
+            warn("Invalid dropdown value:", Value)
+        end
+    end
+    dropdownChanged = true
+end)
+
+-- Print a message to confirm script execution
+print("Teleport script loaded.")
+
+
+------------------------------------------------------Misc-------------------------------------------------------
+local Slider = Tabs.Misc:AddSlider("Slider", { --walkspeed
+    Title = "Walkspeed",
+    Description = "It makes you fast",
+    Default = 16,
+    Min = 16,
+    Max = 250,
+    Rounding = 1,
+    Callback = function(Value)
+        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
+    end
+})
+
+Slider:OnChanged(function(Value)
+    print("Slider changed:", Value)
+end)
+
+Slider:SetValue(3)
+
+local Toggle = Tabs.Misc:AddToggle("MyToggle", {Title = "Infinite Jump", Default = false }) --infinitejump
+
+local infinitejumpEnabled = false
+
+Toggle:OnChanged(function(enabled)
+    infinitejumpEnabled = enabled
+end)
+
+game:GetService("UserInputService").JumpRequest:connect(function()
+    if infinitejumpEnabled then
+        game:GetService("Players").LocalPlayer.Character:FindFirstChild('Humanoid'):ChangeState("Jumping")
+    end
+end)
+
+local ToggleAntiAfk = Tabs.Misc:AddToggle("ToggleAntiAfk", {
+    Title = "Anti-AFK",
+    Default = false
+})
+
+local antiAfkRunning = false
+local VirtualUser = game:GetService('VirtualUser')
+
+ToggleAntiAfk:OnChanged(function(enabled)
+    if enabled then
+        -- Start anti-AFK logic
+        if not antiAfkRunning then
+            antiAfkRunning = true
+
+            -- Function to handle idling
+            local function onIdle()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new())
+            end
+
+            -- Connect to Idled event
+            game.Players.LocalPlayer.Idled:Connect(onIdle)
+
+            -- Notification or print statement (you can adjust createNotification function)
+            print("Anti-AFK Enabled")
+        else
+            print("Anti-AFK is already running.")
+        end
+    else
+        -- Stop anti-AFK logic
+        if antiAfkRunning then
+            antiAfkRunning = false
+            -- Disconnect from Idled event
+            game.Players.LocalPlayer.Idled:Disconnect()
+            print("Anti-AFK Disabled")
+        else
+            print("Anti-AFK is already disabled.")
+        end
+    end
+end)
+
+local Input = Tabs.Auto:AddInput("Input", {
+    Title = "Input",
+    Default = "Default",
+    Placeholder = "Placeholder",
+    Numeric = false, 
+    Finished = false, 
+    Callback = function(Value)
+        print("Input changed:", Value)
+    end
+})
+
+Input:OnChanged(function()
+    print("Input updated:", Input.Value)
+end)
+end
+
+-- Addons:
+-- SaveManager (Allows you to have a configuration system)
+-- InterfaceManager (Allows you to have a interface managment system)
+
+-- Hand the library over to our managers
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+
+-- Ignore keys that are used by ThemeManager.
+-- (we dont want configs to save themes, do we?)
+SaveManager:IgnoreThemeSettings()
+
+-- You can add indexes of elements the save manager should ignore
+SaveManager:SetIgnoreIndexes({})
+
+-- use case for doing it this way:
+-- a script hub could have themes in a global folder
+-- and game configs in a separate folder per game
+InterfaceManager:SetFolder("FluentScriptHub")
+SaveManager:SetFolder("FluentScriptHub/specific-game")
+
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+
+Window:SelectTab(1)
+
+Fluent:Notify({
+    Title = "Fluent",
+    Content = "The script has been loaded.",
+    Duration = 8
+})
+
+-- You can use the SaveManager:LoadAutoloadConfig() to load a config
+-- which has been marked to be one that auto loads!
+SaveManager:LoadAutoloadConfig()
