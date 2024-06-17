@@ -3,23 +3,23 @@ local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/d
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "Lemonade Hub " .. Fluent.Version,
-    SubTitle = "by Lemon",
+    Title = "Fluent " .. Fluent.Version,
+    SubTitle = "by dawid",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = true, -- The blur may be detectable, setting this to false disables blur entirely
-    Theme = "Aqua",
+    Theme = "Dark",
     MinimizeKey = Enum.KeyCode.LeftControl -- Used when theres no MinimizeKeybind
 })
-    
 --Fluent provides Lucide Icons https://lucide.dev/icons/ for the tabs, icons are optional
 local Tabs = {
     Info = Window:AddTab({ Title = "Info", Icon = "sheet" }),
     Auto = Window:AddTab({ Title = "Auto", Icon = "fingerprint" }),
     Combat = Window:AddTab({ Title = "Combat", Icon = "target" }),
     Trade = Window:AddTab({ Title = "Trade", Icon = "cast" }),
-    Teleport = Window:AddTab({ Title = "Teleport", Icon = "podcast" }),
-    Misc = Window:AddTab({ Title = "Misc", Icon = "component" })
+    Teleport = Window:AddTab({ Title = "Teleport", Icon = "cast" }),
+    Misc = Window:AddTab({ Title = "Misc", Icon = "component" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
 local Options = Fluent.Options
@@ -112,95 +112,80 @@ do
         end
     end)
 
--- Sell Weapon
-local player = game.Players.LocalPlayer
+    -- Sell Weapon
+    local player = game.Players.LocalPlayer
 
-if not player then
-    return
-end
-
-local autoSellEnabled = false
-local autoSellThread = nil
-
-local function AutoSell()
-    while autoSellEnabled do
-        local scrollingFrame = player.PlayerGui.EquipmentPanel.Frame.EquipmentPackage.Right.Mid.ScrollingFrame
-
-        if scrollingFrame then
-            local args = {}
-            local count = 0
-
-            for _, child in pairs(scrollingFrame:GetChildren()) do
-                if child.Name ~= "EquipmentTemplate" and child.Name ~= "UIGridLayout" then
-                    if child:FindFirstChild("LockImage") then
-                        local lockImage = child.LockImage
-                        local imageLabel = lockImage.Frame:FindFirstChild("ImageLabel")
-                        if imageLabel and not imageLabel.Visible then
-                            count = count + 1
-                            args[count] = {
-                                [1] = child.Name,
-                                [2] = "",
-                                [3] = "",
-                                [4] = ""
-                            }
+    if not player then
+        return
+    end
+    
+    local autoSellEnabled = false
+    local autoSellThread = nil
+    
+    local function AutoSell()
+        while autoSellEnabled do
+            local scrollingFrame = player.PlayerGui.EquipmentPanel.Frame.EquipmentPackage.Right.Mid.ScrollingFrame
+    
+            if scrollingFrame then
+                local args = {}
+                local count = 0
+    
+                for _, child in pairs(scrollingFrame:GetChildren()) do
+                    if child.Name ~= "EquipmentTemplate" and child.Name ~= "UIGridLayout" then
+                        if child:FindFirstChild("LockImage") then
+                            local lockImage = child.LockImage
+                            local imageLabel = lockImage.Frame:FindFirstChild("ImageLabel")
+                            if imageLabel and not imageLabel.Visible then
+                                count = count + 1
+                                args[count] = {
+                                    [1] = child.Name,
+                                    [2] = "",
+                                    [3] = "",
+                                    [4] = ""
+                                }
+                            end
                         end
                     end
                 end
-            end
-
-            if count > 0 then
-                local success, error_message = pcall(function()
-                    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("DeleteWeapons"):FireServer(unpack(args))
-                end)
-
-                if not success then
-                    warn("Error while selling weapons:", error_message)
+    
+                if count > 0 then
+                    local success, error_message = pcall(function()
+                        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("DeleteWeapons"):FireServer(unpack(args))
+                    end)
+    
+                    if not success then
+                        warn("Error while selling weapons:", error_message)
+                    end
+    
+                    wait(0.1)  -- Adjust delay as needed
+                else
+                    autoSellEnabled = false
                 end
-
-                wait(0.1)  -- Adjust delay as needed
             else
                 autoSellEnabled = false
             end
-        else
-            autoSellEnabled = false
+    
+            wait(0.1)  -- Adjust delay as needed
         end
-
-        wait(0.1)  -- Adjust delay as needed
     end
-end
-
-local function startAutoSell()
-    if not autoSellEnabled then
-        autoSellEnabled = true
-        autoSellThread = coroutine.create(AutoSell)
-        coroutine.resume(autoSellThread)
+    
+    local function startAutoSell()
+        if not autoSellEnabled then
+            autoSellEnabled = true
+            autoSellThread = coroutine.create(AutoSell)
+            coroutine.resume(autoSellThread)
+        end
     end
-end
-
-local function stopAutoSell()
-    if autoSellEnabled then
-        autoSellEnabled = false
+    
+    local function stopAutoSell()
+        if autoSellEnabled then
+            autoSellEnabled = false
+            if autoSellThread then
+                coroutine.kill(autoSellThread)
+                autoSellThread = nil
+            end
+        end
     end
-end
-
-local Toggle = Tabs.Auto:AddToggle("MyToggle", {Title = "Sell Weapons", Default = false})
-
-Toggle:OnChanged(function()
-    autoSellEnabled = Toggle.Value
-    if autoSellEnabled then
-        startAutoSell()
-    else
-        stopAutoSell()
-    end
-end)
-
--- Initialize with the default state
-autoSellEnabled = Toggle.Value
-if autoSellEnabled then
-    startAutoSell()
-else
-    stopAutoSell()
-end
     
     -- Example GUI Integration (replace with your actual implementation)
     local ToggleAutoSell = Tabs.Auto:AddToggle("ToggleAutoSell", {Title = "Sell Weapon", Default = false})
@@ -502,6 +487,127 @@ ToggleMagnet:OnChanged(function(enabled)
     end
 end)
 
+--------------------------------------------Trade--------------------------------------------------------------
+-- Utility function to print GUI hierarchy
+local function PrintGuiHierarchy(gui, indent)
+    indent = indent or ""
+    for _, child in ipairs(gui:GetChildren()) do
+        print(indent .. child.Name)
+        PrintGuiHierarchy(child, indent .. "  ")
+    end
+end
+
+-- Function to set the visibility of the TipFrame
+local function SetTipFrameVisibility(player, visible)
+    local playerGui = player:FindFirstChild("PlayerGui")
+    if playerGui then
+        print("PlayerGui found for player " .. player.Name)
+        local tradingTipPanel = playerGui:FindFirstChild("TradingTipPanel")
+        if tradingTipPanel then
+            print("TradingTipPanel found")
+            local tradingTipFrame = tradingTipPanel:FindFirstChild("TipFrame")
+            if tradingTipFrame then
+                tradingTipFrame.Visible = visible
+                print("TipFrame visibility set to " .. tostring(visible))
+            else
+                warn("TipFrame not found in TradingTipPanel for player " .. player.Name)
+            end
+        else
+            warn("TradingTipPanel not found in player " .. player.Name .. "'s GUI.")
+        end
+    else
+        warn("PlayerGui not found for player " .. player.Name)
+    end
+end
+
+-- Function to send trade request to a specified player
+local function TradeToPlayer(playerName)
+    local player = game.Players.LocalPlayer
+    local targetPlayer = game.Players:FindFirstChild(playerName)
+    
+    if targetPlayer then
+        local success, errorMessage = pcall(function()
+            game:GetService("ReplicatedStorage").Remotes.SendTrade:InvokeServer(targetPlayer)
+        end)
+        
+        if success then
+            print("Trade request sent successfully to " .. playerName)
+            SetTipFrameVisibility(player, true)
+        else
+            warn("Failed to send trade request:", errorMessage)
+        end
+    else
+        warn("Player '" .. playerName .. "' not found in the server.")
+    end
+end
+
+-- Function to refresh the dropdown list of players
+local function RefreshDropdown(Dropdown)
+    if Dropdown then
+        Dropdown.Values = {}
+        local playerNames = {}
+        for _, player in ipairs(game.Players:GetPlayers()) do
+            table.insert(playerNames, player.Name)
+        end
+        Dropdown:SetValues(playerNames)
+    else
+        warn("Dropdown object not found.")
+    end
+end
+
+-- Initialize the dropdown with player names
+local playerNames = {}
+for _, player in ipairs(game.Players:GetPlayers()) do
+    table.insert(playerNames, player.Name)
+end
+
+-- Assume 'Tabs.Trade' exists for Dropdown and Button addition
+
+-- Add a dropdown to select a player for trade
+local Dropdown = Tabs.Trade:AddDropdown("Dropdown", {
+    Title = "Trade to Player",
+    Values = playerNames,
+    Multi = false,
+    Default = 1,
+})
+
+Dropdown:OnChanged(function(selectedItem)
+    Dropdown.Selected = selectedItem
+end)
+
+-- Add a button to send trade to the selected player
+Tabs.Trade:AddButton({
+    Title = "Trade Button",
+    Description = "Send trade to selected player",
+    Callback = function()
+        local selectedPlayer = Dropdown.Selected
+        if selectedPlayer and type(selectedPlayer) == "string" then
+            TradeToPlayer(selectedPlayer)
+        else
+            warn("No player selected to trade.")
+        end
+    end
+})
+
+-- Add a button to refresh the list of players
+Tabs.Trade:AddButton({
+    Title = "Refresh Players",
+    Description = "Refresh the list of players",
+    Callback = function()
+        RefreshDropdown(Dropdown)
+    end
+})
+
+-- Initial delay to give time for GUI elements to load
+wait(2)  -- Adjust the wait time if necessary
+
+-- Print the PlayerGui hierarchy to debug
+PrintGuiHierarchy(game.Players.LocalPlayer:FindFirstChild("PlayerGui"))
+
+-- Initially hide the TipFrame
+SetTipFrameVisibility(game.Players.LocalPlayer, false)
+
+
 --------------------------------------------Teleport-------------------------------------------------------------
 
 -- Function to handle teleportation
@@ -523,7 +629,7 @@ end
 
 -- Dropdown setup
 local Dropdown = Tabs.Teleport:AddDropdown("Dropdown", {
-    Title = "Teleport World 1:",
+    Title = "Teleport",
     Values = {
         "Fantasy Valley",
         "Seaside Villa",
@@ -573,63 +679,6 @@ end)
 
 -- Print a message to confirm script execution
 print("Teleport script loaded.")
-
-------------------------------------------------------------------------------------------------------
--- Function to handle teleportation
-local function TeleportTo(mapId)
-    local args = {
-        mapId = mapId
-    }
-    
-    local success, errorMessage = pcall(function()
-        game:GetService("ReplicatedStorage").Remotes.LocalPlayerTeleport:FireServer(args)
-    end)
-    
-    if success then
-        print("Teleport request sent successfully to mapId:", mapId)
-    else
-        warn("Failed to send teleport request:", errorMessage)
-    end
-end
-
--- Dropdown setup
-local Dropdown = Tabs.Teleport:AddDropdown("Dropdown", {
-    Title = "Teleport World 2:",
-    Values = {
-        "Naruto Guardian Village",
-        "Pirate World"
-    },
-    Multi = false,
-    Default = 1, -- Index of default value in Values array (1-based)
-})
-
--- Mapping between dropdown values and mapIds
-local mapIds = {
-    ["Naruto Guardian Village"] = 50020,
-    ["Pirate World"] = 50021,
-}
-
--- Flag to track if dropdown has been changed from default
-local dropdownChanged = false
-
--- OnChanged callback for dropdown
-Dropdown:OnChanged(function(Value)
-    -- Ensure teleportation only happens after the initial setup
-    if dropdownChanged then
-        local mapId = mapIds[Value]
-        if mapId then
-            TeleportTo(mapId)
-        else
-            warn("Invalid dropdown value:", Value)
-        end
-    end
-    dropdownChanged = true
-end)
-
--- Print a message to confirm script execution
-print("Teleport script loaded.")
-
-
 
 
 ------------------------------------------------------Misc-------------------------------------------------------
@@ -706,118 +755,6 @@ ToggleAntiAfk:OnChanged(function(enabled)
     end
 end)
 
---------------------------------------------Trade--------------------------------------------------------------
--- Trade
-local function SetTipFrameVisibility(player, visible)
-    local tradingTipPanel = player:WaitForChild("PlayerGui"):WaitForChild("TradingTipPanel")
-    if tradingTipPanel then
-        local tradingTipFrame = tradingTipPanel:FindFirstChild("TipFrame")
-        if tradingTipFrame then
-            tradingTipFrame.Visible = visible
-        else
-            warn("TipFrame not found in TradingTipPanel.")
-        end
-    else
-        warn("TradingTipPanel not found in player's GUI.")
-    end
-end
-
--- Function to send a trade request to a player
-local function TradeToPlayer(playerName)
-    local player = game.Players.LocalPlayer
-    local targetPlayer = game.Players:FindFirstChild(playerName)
-    
-    if targetPlayer then
-        -- Constructing arguments for the remote call
-        local args = {
-            [1] = targetPlayer  -- Pass the target player object
-        }
-        
-        -- Invoke the remote function to send the trade request
-        local success, errorMessage = pcall(function()
-            game:GetService("ReplicatedStorage").Remotes.SendTrade:InvokeServer(unpack(args))
-        end)
-        
-        if success then
-            print("Trade request sent successfully to " .. playerName)
-            
-            -- Show TradingTipPanel.TipFrame after successful trade request
-            SetTipFrameVisibility(player, true)
-            
-        else
-            warn("Failed to send trade request:", errorMessage)
-        end
-    else
-        warn("Player '" .. playerName .. "' not found in the server.")
-    end
-end
-
--- Function to refresh the dropdown with current player names
-local function RefreshDropdown(Dropdown)
-    if Dropdown then
-        -- Clear existing player names
-        Dropdown.Values = {}
-        
-        -- Retrieve current list of player names
-        local playerNames = {}
-        for _, player in ipairs(game.Players:GetPlayers()) do
-            table.insert(playerNames, player.Name)
-        end
-        
-        -- Populate dropdown with updated player names
-        Dropdown:SetValues(playerNames)
-    else
-        warn("Dropdown object not found.")
-    end
-end
-
--- Example list of player names (initial population)
-local playerNames = {}
-for _, player in ipairs(game.Players:GetPlayers()) do
-    table.insert(playerNames, player.Name)
-end
-
--- Dropdown setup
-local Dropdown = Tabs.Trade:AddDropdown("Dropdown", {
-    Title = "Trade to Player",
-    Values = playerNames, -- Populate dropdown with player names
-    Multi = false,
-    Default = 1,
-})
-
--- Event listener for dropdown change
-Dropdown:OnChanged(function(selectedItem)
-    Dropdown.Selected = selectedItem -- Update selected item
-end)
-
--- Button setup
-Tabs.Trade:AddButton({
-    Title = "Trade Button",
-    Description = "Send trade to selected player",
-    Callback = function()
-        local selectedPlayer = Dropdown.Selected
-        
-        if selectedPlayer and type(selectedPlayer) == "string" then
-            TradeToPlayer(selectedPlayer) -- Send trade to the selected player
-        else
-            warn("No player selected to trade.")
-        end
-    end
-})
-
--- Refresh button setup
-Tabs.Trade:AddButton({
-    Title = "Refresh Players",
-    Description = "Refresh the list of players",
-    Callback = function()
-        RefreshDropdown(Dropdown) -- Refresh the dropdown with current player names
-    end
-})
-
--- Initially hide TradingTipPanel.TipFrame when the script runs
-SetTipFrameVisibility(game.Players.LocalPlayer, false)
-
----------------------------------------------------------------------------------------------------------------
 local Input = Tabs.Auto:AddInput("Input", {
     Title = "Input",
     Default = "Default",
@@ -833,3 +770,40 @@ Input:OnChanged(function()
     print("Input updated:", Input.Value)
 end)
 end
+
+-- Addons:
+-- SaveManager (Allows you to have a configuration system)
+-- InterfaceManager (Allows you to have a interface managment system)
+
+-- Hand the library over to our managers
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+
+-- Ignore keys that are used by ThemeManager.
+-- (we dont want configs to save themes, do we?)
+SaveManager:IgnoreThemeSettings()
+
+-- You can add indexes of elements the save manager should ignore
+SaveManager:SetIgnoreIndexes({})
+
+-- use case for doing it this way:
+-- a script hub could have themes in a global folder
+-- and game configs in a separate folder per game
+InterfaceManager:SetFolder("FluentScriptHub")
+SaveManager:SetFolder("FluentScriptHub/specific-game")
+
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+
+Window:SelectTab(1)
+
+Fluent:Notify({
+    Title = "Fluent",
+    Content = "The script has been loaded.",
+    Duration = 8
+})
+
+-- You can use the SaveManager:LoadAutoloadConfig() to load a config
+-- which has been marked to be one that auto loads!
+SaveManager:LoadAutoloadConfig()
