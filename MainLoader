@@ -1,5 +1,3 @@
-wait(2)
-
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
@@ -10,7 +8,7 @@ local Window = Fluent:CreateWindow({
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = true, -- The blur may be detectable, setting this to false disables blur entirely
-    Theme = "Dark",
+    Theme = "Aqua",
     MinimizeKey = Enum.KeyCode.LeftControl -- Used when theres no MinimizeKeybind
 })
     
@@ -20,9 +18,8 @@ local Tabs = {
     Auto = Window:AddTab({ Title = "Auto", Icon = "fingerprint" }),
     Combat = Window:AddTab({ Title = "Combat", Icon = "target" }),
     Trade = Window:AddTab({ Title = "Trade", Icon = "cast" }),
-    Teleport = Window:AddTab({ Title = "Teleport", Icon = "cast" }),
-    Misc = Window:AddTab({ Title = "Misc", Icon = "component" }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+    Teleport = Window:AddTab({ Title = "Teleport", Icon = "podcast" }),
+    Misc = Window:AddTab({ Title = "Misc", Icon = "component" })
 }
 
 local Options = Fluent.Options
@@ -115,80 +112,95 @@ do
         end
     end)
 
-    -- Sell Weapon
-    local player = game.Players.LocalPlayer
+-- Sell Weapon
+local player = game.Players.LocalPlayer
 
-    if not player then
-        return
-    end
-    
-    local autoSellEnabled = false
-    local autoSellThread = nil
-    
-    local function AutoSell()
-        while autoSellEnabled do
-            local scrollingFrame = player.PlayerGui.EquipmentPanel.Frame.EquipmentPackage.Right.Mid.ScrollingFrame
-    
-            if scrollingFrame then
-                local args = {}
-                local count = 0
-    
-                for _, child in pairs(scrollingFrame:GetChildren()) do
-                    if child.Name ~= "EquipmentTemplate" and child.Name ~= "UIGridLayout" then
-                        if child:FindFirstChild("LockImage") then
-                            local lockImage = child.LockImage
-                            local imageLabel = lockImage.Frame:FindFirstChild("ImageLabel")
-                            if imageLabel and not imageLabel.Visible then
-                                count = count + 1
-                                args[count] = {
-                                    [1] = child.Name,
-                                    [2] = "",
-                                    [3] = "",
-                                    [4] = ""
-                                }
-                            end
+if not player then
+    return
+end
+
+local autoSellEnabled = false
+local autoSellThread = nil
+
+local function AutoSell()
+    while autoSellEnabled do
+        local scrollingFrame = player.PlayerGui.EquipmentPanel.Frame.EquipmentPackage.Right.Mid.ScrollingFrame
+
+        if scrollingFrame then
+            local args = {}
+            local count = 0
+
+            for _, child in pairs(scrollingFrame:GetChildren()) do
+                if child.Name ~= "EquipmentTemplate" and child.Name ~= "UIGridLayout" then
+                    if child:FindFirstChild("LockImage") then
+                        local lockImage = child.LockImage
+                        local imageLabel = lockImage.Frame:FindFirstChild("ImageLabel")
+                        if imageLabel and not imageLabel.Visible then
+                            count = count + 1
+                            args[count] = {
+                                [1] = child.Name,
+                                [2] = "",
+                                [3] = "",
+                                [4] = ""
+                            }
                         end
                     end
                 end
-    
-                if count > 0 then
-                    local success, error_message = pcall(function()
-                        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("DeleteWeapons"):FireServer(unpack(args))
-                    end)
-    
-                    if not success then
-                        warn("Error while selling weapons:", error_message)
-                    end
-    
-                    wait(0.1)  -- Adjust delay as needed
-                else
-                    autoSellEnabled = false
+            end
+
+            if count > 0 then
+                local success, error_message = pcall(function()
+                    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("DeleteWeapons"):FireServer(unpack(args))
+                end)
+
+                if not success then
+                    warn("Error while selling weapons:", error_message)
                 end
+
+                wait(0.1)  -- Adjust delay as needed
             else
                 autoSellEnabled = false
             end
-    
-            wait(0.1)  -- Adjust delay as needed
-        end
-    end
-    
-    local function startAutoSell()
-        if not autoSellEnabled then
-            autoSellEnabled = true
-            autoSellThread = coroutine.create(AutoSell)
-            coroutine.resume(autoSellThread)
-        end
-    end
-    
-    local function stopAutoSell()
-        if autoSellEnabled then
+        else
             autoSellEnabled = false
-            if autoSellThread then
-                coroutine.kill(autoSellThread)
-                autoSellThread = nil
-            end
         end
+
+        wait(0.1)  -- Adjust delay as needed
     end
+end
+
+local function startAutoSell()
+    if not autoSellEnabled then
+        autoSellEnabled = true
+        autoSellThread = coroutine.create(AutoSell)
+        coroutine.resume(autoSellThread)
+    end
+end
+
+local function stopAutoSell()
+    if autoSellEnabled then
+        autoSellEnabled = false
+    end
+end
+
+local Toggle = Tabs.Auto:AddToggle("MyToggle", {Title = "Sell Weapons", Default = false})
+
+Toggle:OnChanged(function()
+    autoSellEnabled = Toggle.Value
+    if autoSellEnabled then
+        startAutoSell()
+    else
+        stopAutoSell()
+    end
+end)
+
+-- Initialize with the default state
+autoSellEnabled = Toggle.Value
+if autoSellEnabled then
+    startAutoSell()
+else
+    stopAutoSell()
+end
     
     -- Example GUI Integration (replace with your actual implementation)
     local ToggleAutoSell = Tabs.Auto:AddToggle("ToggleAutoSell", {Title = "Sell Weapon", Default = false})
@@ -490,6 +502,210 @@ ToggleMagnet:OnChanged(function(enabled)
     end
 end)
 
+--------------------------------------------Teleport-------------------------------------------------------------
+
+-- Function to handle teleportation
+local function TeleportTo(mapId)
+    local args = {
+        mapId = mapId
+    }
+    
+    local success, errorMessage = pcall(function()
+        game:GetService("ReplicatedStorage").Remotes.LocalPlayerTeleport:FireServer(args)
+    end)
+    
+    if success then
+        print("Teleport request sent successfully to mapId:", mapId)
+    else
+        warn("Failed to send teleport request:", errorMessage)
+    end
+end
+
+-- Dropdown setup
+local Dropdown = Tabs.Teleport:AddDropdown("Dropdown", {
+    Title = "Teleport World 1:",
+    Values = {
+        "Fantasy Valley",
+        "Seaside Villa",
+        "Congress Hall",
+        "Border Territory",
+        "Polar Plain",
+        "Ghost Forest",
+        "Demon Station",
+        "Hachira's training",
+        "Infinite City",
+        "One Punch Man"
+    },
+    Multi = false,
+    Default = 1, -- Index of default value in Values array (1-based)
+})
+
+-- Mapping between dropdown values and mapIds
+local mapIds = {
+    ["Fantasy Valley"] = 50001,
+    ["Seaside Villa"] = 50002,
+    ["Congress Hall"] = 50003,
+    ["Border Territory"] = 50004,
+    ["Polar Plain"] = 50005,
+    ["Ghost Forest"] = 50006,
+    ["Demon Station"] = 50007,
+    ["Hachira's training"] = 50008,
+    ["Infinite City"] = 50009,
+    ["One Punch Man"] = 50010,
+}
+
+-- Flag to track if dropdown has been changed from default
+local dropdownChanged = false
+
+-- OnChanged callback for dropdown
+Dropdown:OnChanged(function(Value)
+    -- Ensure teleportation only happens after the initial setup
+    if dropdownChanged then
+        local mapId = mapIds[Value]
+        if mapId then
+            TeleportTo(mapId)
+        else
+            warn("Invalid dropdown value:", Value)
+        end
+    end
+    dropdownChanged = true
+end)
+
+-- Print a message to confirm script execution
+print("Teleport script loaded.")
+
+------------------------------------------------------------------------------------------------------
+-- Function to handle teleportation
+local function TeleportTo(mapId)
+    local args = {
+        mapId = mapId
+    }
+    
+    local success, errorMessage = pcall(function()
+        game:GetService("ReplicatedStorage").Remotes.LocalPlayerTeleport:FireServer(args)
+    end)
+    
+    if success then
+        print("Teleport request sent successfully to mapId:", mapId)
+    else
+        warn("Failed to send teleport request:", errorMessage)
+    end
+end
+
+-- Dropdown setup
+local Dropdown = Tabs.Teleport:AddDropdown("Dropdown", {
+    Title = "Teleport World 2:",
+    Values = {
+        "Naruto Guardian Village",
+        "Pirate World"
+    },
+    Multi = false,
+    Default = 1, -- Index of default value in Values array (1-based)
+})
+
+-- Mapping between dropdown values and mapIds
+local mapIds = {
+    ["Naruto Guardian Village"] = 50020,
+    ["Pirate World"] = 50021,
+}
+
+-- Flag to track if dropdown has been changed from default
+local dropdownChanged = false
+
+-- OnChanged callback for dropdown
+Dropdown:OnChanged(function(Value)
+    -- Ensure teleportation only happens after the initial setup
+    if dropdownChanged then
+        local mapId = mapIds[Value]
+        if mapId then
+            TeleportTo(mapId)
+        else
+            warn("Invalid dropdown value:", Value)
+        end
+    end
+    dropdownChanged = true
+end)
+
+-- Print a message to confirm script execution
+print("Teleport script loaded.")
+
+
+
+
+------------------------------------------------------Misc-------------------------------------------------------
+local Slider = Tabs.Misc:AddSlider("Slider", { --walkspeed
+    Title = "Walkspeed",
+    Description = "It makes you fast",
+    Default = 16,
+    Min = 16,
+    Max = 250,
+    Rounding = 1,
+    Callback = function(Value)
+        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
+    end
+})
+
+Slider:OnChanged(function(Value)
+    print("Slider changed:", Value)
+end)
+
+Slider:SetValue(3)
+
+local Toggle = Tabs.Misc:AddToggle("MyToggle", {Title = "Infinite Jump", Default = false }) --infinitejump
+
+local infinitejumpEnabled = false
+
+Toggle:OnChanged(function(enabled)
+    infinitejumpEnabled = enabled
+end)
+
+game:GetService("UserInputService").JumpRequest:connect(function()
+    if infinitejumpEnabled then
+        game:GetService("Players").LocalPlayer.Character:FindFirstChild('Humanoid'):ChangeState("Jumping")
+    end
+end)
+
+local ToggleAntiAfk = Tabs.Misc:AddToggle("ToggleAntiAfk", {
+    Title = "Anti-AFK",
+    Default = false
+})
+
+local antiAfkRunning = false
+local VirtualUser = game:GetService('VirtualUser')
+
+ToggleAntiAfk:OnChanged(function(enabled)
+    if enabled then
+        -- Start anti-AFK logic
+        if not antiAfkRunning then
+            antiAfkRunning = true
+
+            -- Function to handle idling
+            local function onIdle()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new())
+            end
+
+            -- Connect to Idled event
+            game.Players.LocalPlayer.Idled:Connect(onIdle)
+
+            -- Notification or print statement (you can adjust createNotification function)
+            print("Anti-AFK Enabled")
+        else
+            print("Anti-AFK is already running.")
+        end
+    else
+        -- Stop anti-AFK logic
+        if antiAfkRunning then
+            antiAfkRunning = false
+            -- Disconnect from Idled event
+            game.Players.LocalPlayer.Idled:Disconnect()
+            print("Anti-AFK Disabled")
+        else
+            print("Anti-AFK is already disabled.")
+        end
+    end
+end)
+
 --------------------------------------------Trade--------------------------------------------------------------
 -- Trade
 local function SetTipFrameVisibility(player, visible)
@@ -601,154 +817,7 @@ Tabs.Trade:AddButton({
 -- Initially hide TradingTipPanel.TipFrame when the script runs
 SetTipFrameVisibility(game.Players.LocalPlayer, false)
 
-
---------------------------------------------Teleport-------------------------------------------------------------
-
--- Function to handle teleportation
-local function TeleportTo(mapId)
-    local args = {
-        mapId = mapId
-    }
-    
-    local success, errorMessage = pcall(function()
-        game:GetService("ReplicatedStorage").Remotes.LocalPlayerTeleport:FireServer(args)
-    end)
-    
-    if success then
-        print("Teleport request sent successfully to mapId:", mapId)
-    else
-        warn("Failed to send teleport request:", errorMessage)
-    end
-end
-
--- Dropdown setup
-local Dropdown = Tabs.Teleport:AddDropdown("Dropdown", {
-    Title = "Teleport",
-    Values = {
-        "Fantasy Valley",
-        "Seaside Villa",
-        "Congress Hall",
-        "Border Territory",
-        "Polar Plain",
-        "Ghost Forest",
-        "Demon Station",
-        "Hachira's training",
-        "Infinite City",
-        "One Punch Man"
-    },
-    Multi = false,
-    Default = 1, -- Index of default value in Values array (1-based)
-})
-
--- Mapping between dropdown values and mapIds
-local mapIds = {
-    ["Fantasy Valley"] = 50001,
-    ["Seaside Villa"] = 50002,
-    ["Congress Hall"] = 50003,
-    ["Border Territory"] = 50004,
-    ["Polar Plain"] = 50005,
-    ["Ghost Forest"] = 50006,
-    ["Demon Station"] = 50007,
-    ["Hachira's training"] = 50008,
-    ["Infinite City"] = 50009,
-    ["One Punch Man"] = 50010,
-}
-
--- Flag to track if dropdown has been changed from default
-local dropdownChanged = false
-
--- OnChanged callback for dropdown
-Dropdown:OnChanged(function(Value)
-    -- Ensure teleportation only happens after the initial setup
-    if dropdownChanged then
-        local mapId = mapIds[Value]
-        if mapId then
-            TeleportTo(mapId)
-        else
-            warn("Invalid dropdown value:", Value)
-        end
-    end
-    dropdownChanged = true
-end)
-
--- Print a message to confirm script execution
-print("Teleport script loaded.")
-
-
-------------------------------------------------------Misc-------------------------------------------------------
-local Slider = Tabs.Misc:AddSlider("Slider", { --walkspeed
-    Title = "Walkspeed",
-    Description = "It makes you fast",
-    Default = 16,
-    Min = 16,
-    Max = 250,
-    Rounding = 1,
-    Callback = function(Value)
-        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
-    end
-})
-
-Slider:OnChanged(function(Value)
-    print("Slider changed:", Value)
-end)
-
-Slider:SetValue(3)
-
-local Toggle = Tabs.Misc:AddToggle("MyToggle", {Title = "Infinite Jump", Default = false }) --infinitejump
-
-local infinitejumpEnabled = false
-
-Toggle:OnChanged(function(enabled)
-    infinitejumpEnabled = enabled
-end)
-
-game:GetService("UserInputService").JumpRequest:connect(function()
-    if infinitejumpEnabled then
-        game:GetService("Players").LocalPlayer.Character:FindFirstChild('Humanoid'):ChangeState("Jumping")
-    end
-end)
-
-local ToggleAntiAfk = Tabs.Misc:AddToggle("ToggleAntiAfk", {
-    Title = "Anti-AFK",
-    Default = false
-})
-
-local antiAfkRunning = false
-local VirtualUser = game:GetService('VirtualUser')
-
-ToggleAntiAfk:OnChanged(function(enabled)
-    if enabled then
-        -- Start anti-AFK logic
-        if not antiAfkRunning then
-            antiAfkRunning = true
-
-            -- Function to handle idling
-            local function onIdle()
-                VirtualUser:CaptureController()
-                VirtualUser:ClickButton2(Vector2.new())
-            end
-
-            -- Connect to Idled event
-            game.Players.LocalPlayer.Idled:Connect(onIdle)
-
-            -- Notification or print statement (you can adjust createNotification function)
-            print("Anti-AFK Enabled")
-        else
-            print("Anti-AFK is already running.")
-        end
-    else
-        -- Stop anti-AFK logic
-        if antiAfkRunning then
-            antiAfkRunning = false
-            -- Disconnect from Idled event
-            game.Players.LocalPlayer.Idled:Disconnect()
-            print("Anti-AFK Disabled")
-        else
-            print("Anti-AFK is already disabled.")
-        end
-    end
-end)
-
+---------------------------------------------------------------------------------------------------------------
 local Input = Tabs.Auto:AddInput("Input", {
     Title = "Input",
     Default = "Default",
@@ -764,40 +833,3 @@ Input:OnChanged(function()
     print("Input updated:", Input.Value)
 end)
 end
-
--- Addons:
--- SaveManager (Allows you to have a configuration system)
--- InterfaceManager (Allows you to have a interface managment system)
-
--- Hand the library over to our managers
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-
--- Ignore keys that are used by ThemeManager.
--- (we dont want configs to save themes, do we?)
-SaveManager:IgnoreThemeSettings()
-
--- You can add indexes of elements the save manager should ignore
-SaveManager:SetIgnoreIndexes({})
-
--- use case for doing it this way:
--- a script hub could have themes in a global folder
--- and game configs in a separate folder per game
-InterfaceManager:SetFolder("FluentScriptHub")
-SaveManager:SetFolder("FluentScriptHub/specific-game")
-
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
-
-
-Window:SelectTab(1)
-
-Fluent:Notify({
-    Title = "Fluent",
-    Content = "The script has been loaded.",
-    Duration = 8
-})
-
--- You can use the SaveManager:LoadAutoloadConfig() to load a config
--- which has been marked to be one that auto loads!
-SaveManager:LoadAutoloadConfig()
